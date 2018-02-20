@@ -1,5 +1,7 @@
 package com.ikasoa.springboot;
 
+import java.util.Optional;
+
 import javax.annotation.PreDestroy;
 
 import org.slf4j.Logger;
@@ -23,7 +25,7 @@ public abstract class IkasoaServerRunner implements CommandLineRunner {
 	/**
 	 * 启动服务等待时间(毫秒)
 	 */
-	private final static int WAIT_TIME = 500;
+	private final static int WAIT_TIME = 1000;
 
 	@Autowired
 	protected IkasoaServer server;
@@ -49,8 +51,7 @@ public abstract class IkasoaServerRunner implements CommandLineRunner {
 
 	@PreDestroy
 	public void destory() {
-		if (server != null)
-			server.stop();
+		Optional.ofNullable(server).ifPresent(s -> s.stop());
 	}
 
 }

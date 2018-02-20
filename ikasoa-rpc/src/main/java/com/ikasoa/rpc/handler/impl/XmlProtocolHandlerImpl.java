@@ -6,7 +6,10 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Optional;
 
+import com.esotericsoftware.minlog.Log;
 import com.ikasoa.rpc.handler.ProtocolHandler;
 import com.ikasoa.rpc.handler.ReturnData;
 
@@ -16,7 +19,7 @@ import com.ikasoa.rpc.handler.ReturnData;
  * @author <a href="mailto:larry7696@gmail.com">Larry</a>
  * @version 0.1
  */
-public class XmlProtocolHandlerImpl<T1, T2> implements ProtocolHandler<T1, T2> {
+public class XmlProtocolHandlerImpl<T, R> implements ProtocolHandler<T, R> {
 
 	private ReturnData resultData;
 
@@ -36,27 +39,25 @@ public class XmlProtocolHandlerImpl<T1, T2> implements ProtocolHandler<T1, T2> {
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public T1 strToArg(String str) {
-		return (T1) parserXML(str);
+	public T strToArg(String str) {
+		return (T) parserXML(str);
 	}
 
 	@Override
-	public String argToStr(T1 arg) {
+	public String argToStr(T arg) {
 		return formatXML(arg);
 	}
 
 	@Override
-	public String resultToStr(T2 result) {
+	public String resultToStr(R result) {
 		return result instanceof Throwable ? new StringBuilder(E).append(formatXML(result)).toString()
-				: result != null ? formatXML(result) : VOID;
+				: Optional.ofNullable(result).map(r -> formatXML(r)).orElse(VOID);
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public T2 strToResult(String str) {
-		if (VOID.equals(str))
-			return null;
-		return (T2) parserXML(str);
+	public R strToResult(String str) {
+		return VOID.equals(str) ? null : (R) parserXML(str);
 	}
 
 	@Override
@@ -66,11 +67,10 @@ public class XmlProtocolHandlerImpl<T1, T2> implements ProtocolHandler<T1, T2> {
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T> T parserXML(String xml) {
-		ByteArrayInputStream in = new ByteArrayInputStream(xml.getBytes());
-		XMLDecoder decoder = new XMLDecoder(new BufferedInputStream(in));
+	private <E> E parserXML(String xml) {
+		XMLDecoder decoder = new XMLDecoder(new BufferedInputStream(new ByteArrayInputStream(xml.getBytes())));
 		decoder.close();
-		return (T) decoder.readObject();
+		return (E) decoder.readObject();
 	}
 
 	@Override
@@ -78,12 +78,17 @@ public class XmlProtocolHandlerImpl<T1, T2> implements ProtocolHandler<T1, T2> {
 		return resultData;
 	}
 
-	private <T> String formatXML(T entity) {
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		XMLEncoder encoder = new XMLEncoder(new BufferedOutputStream(out));
-		encoder.writeObject(entity);
-		encoder.close();
-		return out.toString();
+	private <E> String formatXML(E entity) {
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				BufferedOutputStream bos = new BufferedOutputStream(baos)) {
+			XMLEncoder encoder = new XMLEncoder(bos);
+			encoder.writeObject(entity);
+			encoder.close();
+			return baos.toString();
+		} catch (IOException e) {
+			Log.error(e.getMessage());
+			return VOID;
+		}
 	}
 
 }
